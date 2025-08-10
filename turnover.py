@@ -2,27 +2,33 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from lightgbm import LGBMRegressor
-from sklearn.metrics import mean_squared_error
 import numpy as np
 import matplotlib.pyplot as plt
-import lightgbm as lgb
-
-
 
 # Load your dataset
-df = pd.read_csv("turnover_data.csv")
+df = pd.read_csv("turnoverBata.csv")
+
+# Clean column names (remove special characters for LightGBM)
+df.columns = (
+    df.columns
+    .str.replace('[^A-Za-z0-9_]+', '_', regex=True)  # Replace bad chars with underscore
+    .str.strip('_')  # Remove leading/trailing underscores
+)
 
 # Drop unnecessary columns
-drop_cols = ["Employee ID", "FirstName", "LastName", "StartDate", "ExitDate", 
-             "ADEmail", "TerminationDescription", "Supervisor"]
+drop_cols = ["Employee_ID", "FirstName", "LastName", "StartDate", "ExitDate",
+             "ADEmail", "Survey_Date"]  # Adjust names after cleaning
 df = df.drop(columns=drop_cols, errors='ignore')
+
+# Remove rows where target is NaN
+df = df.dropna(subset=["TurnoverScore"])
+
+# Fill missing values in features (LightGBM can handle NaN but metrics can't)
+df = df.fillna(0)
 
 # Define features and target
 X = df.drop(columns=["TurnoverScore"])
 y = df["TurnoverScore"]
-
-# One-hot encode categorical columns
-X = pd.get_dummies(X, drop_first=True)
 
 # Train/test split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -31,8 +37,13 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 model = LGBMRegressor(random_state=42)
 model.fit(X_train, y_train)
 
-# Evaluate
+# Predict
 y_pred = model.predict(X_test)
+
+# Replace any NaN predictions with 0 (safe for metrics)
+y_pred = np.nan_to_num(y_pred)
+
+# Evaluate
 mae = mean_absolute_error(y_test, y_pred)
 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 r2 = r2_score(y_test, y_pred)
@@ -41,12 +52,7 @@ print(f"MAE: {mae:.4f}")
 print(f"RMSE: {rmse:.4f}")
 print(f"R²: {r2:.4f}")
 
-
-
-
-
-# 📊 Visualization Section
-# -----------------------
+# Visualization Section
 metrics = {'MAE': mae, 'RMSE': rmse, 'R²': r2}
 plt.figure(figsize=(6, 4))
 plt.bar(metrics.keys(), metrics.values(), color='skyblue')
@@ -57,13 +63,7 @@ for i, (k, v) in enumerate(metrics.items()):
 plt.tight_layout()
 plt.show()
 
-# # 1. Feature Importance
-# lgb.plot_importance(model, max_num_features=15)
-# plt.title("Top 15 Feature Importances (LightGBM)")
-# plt.tight_layout()
-# plt.show()
-
-# 2. Actual vs Predicted
+# Actual vs Predicted
 plt.figure(figsize=(8, 6))
 plt.scatter(y_test, y_pred, alpha=0.6)
 plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], '--r', linewidth=2)
@@ -74,22 +74,11 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
-# 3. Residuals Plot
-# residuals = y_test - y_pred
-# plt.figure(figsize=(8, 6))
-# plt.hist(residuals, bins=30, edgecolor='k')
-# plt.title("Residuals Distribution")
-# plt.xlabel("Residual (Actual - Predicted)")
-# plt.ylabel("Frequency")
-# plt.grid(True)
-# plt.tight_layout()
-# plt.show()
-
-# 4. Prediction Error Line Plot (first 100 samples)
+# Prediction Error Line Plot (first 250 samples)
 plt.figure(figsize=(10, 5))
 plt.plot(y_test.values[:250], label='Actual', marker='o')
 plt.plot(y_pred[:250], label='Predicted', marker='x')
-plt.title("Actual vs. Predicted Turnover Scores (First 100 Samples)")
+plt.title("Actual vs. Predicted Turnover Scores (First 250 Samples)")
 plt.xlabel("Sample Index")
 plt.ylabel("Turnover Score")
 plt.legend()
