@@ -39,11 +39,18 @@ df.columns = (
 )
 
 # Drop unnecessary columns
-drop_cols = ["Employee_ID", "FirstName", "LastName", "StartDate", "ExitDate","Survey_Date",
+drop_cols = ['Unnamed_0', 'Employee_ID_1',"Employee_ID", "FirstName", "LastName", "StartDate", "ExitDate","Survey_Date",
              "ADEmail", "Survey Date",'TerminationType_x', 'TerminationDescription_x', 'TerminationType_y', 'TerminationDescription_y']  # Adjust names after cleaning
 df = df.drop(columns=drop_cols, errors='ignore')
 
-df.to_csv("output.csv", index=False)
+df.rename(columns={
+    'Engagement_Score': 'Engagement Score',
+    'Satisfaction_Score': 'Satisfaction Score',
+    'Work_Life_Balance_Score': 'Work-Life Balance Score',
+    'Current_Employee_Rating': 'Current Employee Rating'
+}, inplace=True)
+
+df.to_csv("output1.csv", index=False)
 
 # Remove rows where target is NaN
 df = df.dropna(subset=["TurnoverScore"])
