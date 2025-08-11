@@ -4,3 +4,17 @@ RMSE: 0.04
 MAE: 0.0061
 RMSE: 0.0123
 R²: 0.9900
+
+Updated model : MAE: 0.0199
+RMSE: 0.0390
+R�: 0.9623
+
+Update dataBse : 
+
+MAE: 0.0191
+RMSE: 0.0409
+R�: 0.9569
+
+MAE: 0.0188
+RMSE: 0.0411
+R�: 0.9568

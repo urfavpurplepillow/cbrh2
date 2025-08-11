@@ -4,9 +4,32 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from lightgbm import LGBMRegressor
 import numpy as np
 import matplotlib.pyplot as plt
+import random
+import os
+import joblib  # Import joblib for saving the model
+
 
 # Load your dataset
 df = pd.read_csv("turnoverBata.csv")
+
+# Sort by EmployeeID then SurveyDate
+df = df.sort_values(['Employee ID', 'Survey Date']).reset_index(drop=True)
+
+# Rule 1: If ExitDate is set → TurnoverScore = 100
+df.loc[df['ExitDate'].notna(), 'TurnoverScore'] = 1
+
+# Rule 2: Look ahead to next survey for same EmployeeID
+for i in range(len(df) - 1):
+    current_emp = df.loc[i, 'Employee ID']
+    next_emp = df.loc[i + 1, 'Employee ID']
+    
+    if current_emp == next_emp:  # same employee
+        if pd.notna(df.loc[i + 1, 'ExitDate']):  # next survey has ExitDate
+            if df.loc[i, 'TurnoverScore'] < 70:
+                df.loc[i, 'TurnoverScore'] = (random.uniform(70, 100))/100
+
+df['TurnoverScore'] = df['TurnoverScore'].round(2)
+
 
 # Clean column names (remove special characters for LightGBM)
 df.columns = (
@@ -16,9 +39,11 @@ df.columns = (
 )
 
 # Drop unnecessary columns
-drop_cols = ["Employee_ID", "FirstName", "LastName", "StartDate", "ExitDate",
-             "ADEmail", "Survey_Date"]  # Adjust names after cleaning
+drop_cols = ["Employee_ID", "FirstName", "LastName", "StartDate", "ExitDate","Survey_Date",
+             "ADEmail", "Survey Date",'TerminationType_x', 'TerminationDescription_x', 'TerminationType_y', 'TerminationDescription_y']  # Adjust names after cleaning
 df = df.drop(columns=drop_cols, errors='ignore')
+
+df.to_csv("output.csv", index=False)
 
 # Remove rows where target is NaN
 df = df.dropna(subset=["TurnoverScore"])
@@ -29,6 +54,7 @@ df = df.fillna(0)
 # Define features and target
 X = df.drop(columns=["TurnoverScore"])
 y = df["TurnoverScore"]
+y = np.asarray(y)
 
 # Train/test split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -36,6 +62,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # Train LightGBM
 model = LGBMRegressor(random_state=42)
 model.fit(X_train, y_train)
+
+joblib.dump(model, 'turnover_model.pkl')
+print("✅ Model saved to 'turnover_model.pkl'")
 
 # Predict
 y_pred = model.predict(X_test)
@@ -52,6 +81,11 @@ print(f"MAE: {mae:.4f}")
 print(f"RMSE: {rmse:.4f}")
 print(f"R²: {r2:.4f}")
 
+with open("note.txt", "a") as f:  # "a" means append, not overwrite
+    f.write(f"MAE: {mae:.4f}\n")
+    f.write(f"RMSE: {rmse:.4f}\n")
+    f.write(f"R²: {r2:.4f}\n")
+
 # Visualization Section
 metrics = {'MAE': mae, 'RMSE': rmse, 'R²': r2}
 plt.figure(figsize=(6, 4))
@@ -61,6 +95,14 @@ plt.ylabel("Score")
 for i, (k, v) in enumerate(metrics.items()):
     plt.text(i, v + 0.01, f"{v:.3f}", ha='center')
 plt.tight_layout()
+
+# Save the plot in the same directory as the script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+save_path = os.path.join(current_dir, "model_metrics.png")
+plt.savefig(save_path)
+
+print(f"✅ Chart saved to {save_path}")
+
 plt.show()
 
 # Actual vs Predicted
@@ -72,11 +114,18 @@ plt.ylabel("Predicted Turnover Score")
 plt.title("Actual vs. Predicted Turnover Scores")
 plt.grid(True)
 plt.tight_layout()
+
+# Save in same folder as script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+save_path = os.path.join(current_dir, "actual_vs_predicted.png")
+plt.savefig(save_path)
+
 plt.show()
+print(f"✅ Plot saved to {save_path}")
 
 # Prediction Error Line Plot (first 250 samples)
 plt.figure(figsize=(10, 5))
-plt.plot(y_test.values[:250], label='Actual', marker='o')
+plt.plot(y_test[:250], label='Actual', marker='o')
 plt.plot(y_pred[:250], label='Predicted', marker='x')
 plt.title("Actual vs. Predicted Turnover Scores (First 250 Samples)")
 plt.xlabel("Sample Index")
