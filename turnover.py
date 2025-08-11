@@ -51,7 +51,11 @@ df.rename(columns={
 }, inplace=True)
 
 df.to_csv("output1.csv", index=False)
+with open("columns.txt", "w") as f:
+    for col in df.columns:
+        f.write(col + "\n")
 
+print("✅ Data saved to output1.csv and columns saved to columns.txt")
 # Remove rows where target is NaN
 df = df.dropna(subset=["TurnoverScore"])
 
